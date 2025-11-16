@@ -7,7 +7,9 @@ module.exports = class CreatedThread {
         this.id = id;
         this.title = title;
         this.body = body;
+        // keep userId for backward compatibility and expose owner for API consumers
         this.userId = userId;
+        this.owner = userId;
         this.date = date;
     }
 
