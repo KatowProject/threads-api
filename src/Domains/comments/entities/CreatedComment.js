@@ -2,23 +2,21 @@ module.exports = class CreatedComment {
     constructor(payload) {
         this._verifyPayload(payload);
 
-        const { id, content, threadId, userId, date } = payload;
+        const { id, content, userId } = payload;
 
         this.id = id;
         this.content = content;
-        this.threadId = threadId;
         this.userId = userId;
-        this.date = date;
     }
 
     _verifyPayload(payload) {
-        const { id, content, threadId, userId, date } = payload;
+        const { id, content, userId } = payload;
 
-        if (!id || !content || !threadId || !userId || !date) {
+        if (!id || !content || !userId) {
             throw new Error('CREATED_COMMENT.NOT_CONTAIN_NEEDED_PROPERTY');
         }
 
-        if (typeof id !== 'string' || typeof content !== 'string' || typeof threadId !== 'string' || typeof userId !== 'string' || !(date instanceof Date)) {
+        if (typeof id !== 'string' || typeof content !== 'string' || typeof userId !== 'string' ) {
             throw new Error('CREATED_COMMENT.NOT_MEET_DATA_TYPE_SPECIFICATION');
         }
     }

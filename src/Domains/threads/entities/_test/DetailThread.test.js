@@ -92,7 +92,6 @@ describe('a DetailThread entity', () => {
     expect(reply.id).toEqual('comment-2');
     expect(reply.username).toEqual('user-2');
     expect(reply.date).toEqual(replyDate);
-    // reply is deleted, so content should be replaced with deleted reply marker
-    expect(reply.content).toEqual('[deleted reply]');
+    expect(reply.content).toEqual('**balasan telah dihapus**');
   });
 });

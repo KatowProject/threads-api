@@ -36,19 +36,18 @@ describe('CommentRepositoryPostgres', () => {
       expect(result.rowCount).toEqual(1);
       expect(created.id).toBe('comment-123');
       expect(created.content).toBe('a comment');
-      expect(created.threadId).toBe('thread-123');
+      // repository returns id, content and userId for created comment
       expect(created.userId).toBe('user-123');
-      expect(created.date).toBeInstanceOf(Date);
     });
   });
 
-  describe('verifyCommentExists', () => {
-    it('should throw NotFoundError when comment not exists', async () => {
+  describe('verifyAvailableComment', () => {
+    it('should throw NotFoundError when comment not exists or deleted', async () => {
       // Arrange
       const commentRepositoryPostgres = new CommentRepositoryPostgres(pool, {});
 
       // Action & Assert
-      await expect(commentRepositoryPostgres.verifyCommentExists('comment-999')).rejects.toThrowError(NotFoundError);
+      await expect(commentRepositoryPostgres.verifyAvailableComment('comment-999')).rejects.toThrowError(NotFoundError);
     });
   });
 
@@ -94,6 +93,7 @@ describe('CommentRepositoryPostgres', () => {
       // Assert
       const result = await pool.query('SELECT is_deleted FROM comments WHERE id = $1', ['comment-1']);
       expect(result.rowCount).toBe(1);
+      // repository uses `is_deleted` column in the database
       expect(result.rows[0].is_deleted).toBe(true);
     });
   });

@@ -1,13 +1,5 @@
 class DetailThread {
     constructor(payload) {
-        // Support two payload shapes:
-        // 1) repository rows array (payload is Array of rows)
-        // 2) direct object payload (payload is an Object with fields + comments array)
-
-        // english markers used by tests
-        this._deletedComment = '[deleted comment]';
-        this._deletedReplyComment = '[deleted reply]';
-
         if (Array.isArray(payload)) {
             // DB rows array mode
             if (!payload || payload.length === 0) {
@@ -76,7 +68,7 @@ class DetailThread {
     _arrangeComments(comments) {
         if (!Array.isArray(comments) || comments.length === 0) return [];
 
-        const normalized = this._normalizeComments(comments);
+        const normalized = this._normalizeComments(comments).filter((c) => c && c.commentId != null);
 
         return normalized
             .filter((c) => c.parentCommentId === null)
@@ -84,7 +76,7 @@ class DetailThread {
                 id: c.commentId,
                 username: c.username,
                 date: c.date,
-                content: c.is_deleted === false ? c.content : this._deletedComment,
+                content: c.is_deleted === false ? c.content : "**komentar telah dihapus**",
                 replies: this._processReplies(c.commentId, normalized),
             }));
     }
@@ -92,15 +84,15 @@ class DetailThread {
     _processReplies(parentCommentId, comments) {
         if (!Array.isArray(comments) || comments.length === 0) return [];
 
-        const normalized = this._normalizeComments(comments);
+        const normalized = this._normalizeComments(comments).filter((c) => c && c.commentId != null);
 
         return normalized
-            .filter((c) => c.parentCommentId === parentCommentId)
+            .filter((c) => c.parentCommentId === parentCommentId && c.commentId !== parentCommentId)
             .map((c) => ({
                 id: c.commentId,
                 username: c.username,
                 date: c.date,
-                content: c.is_deleted === false ? c.content : this._deletedReplyComment,
+                content: c.is_deleted === false ? c.content : "**balasan telah dihapus**",
                 replies: this._processReplies(c.commentId, normalized),
             }));
     }
@@ -109,7 +101,7 @@ class DetailThread {
         return comments.map((c) => {
             if (c == null) return c;
             // DB row shape
-            if (c.comment_id !== undefined) {
+            if (c.comment_id !== undefined && c.comment_id !== null) {
                 return {
                     commentId: c.comment_id,
                     parentCommentId: c.parent_comment_id,

@@ -10,14 +10,13 @@ class CommentRepositoryPostgres extends CommentRepository {
     this._nanoid = nanoid;
   }
 
-  async addComment(newComment) {
-    const { content, threadId, userId, parentCommentId = null } = newComment;
-
+  async addComment(payload) {
+    const { content, threadId, userId } = payload;
     const id = `comment-${this._nanoid(16)}`;
 
     const query = {
-      text: 'INSERT INTO comments (id, content, "threadId", "userId", "parentCommentId") VALUES($1, $2, $3, $4, $5) RETURNING id, content, "threadId" AS "threadId", "userId" AS "userId", created_at AS date',
-      values: [id, content, threadId, userId, parentCommentId],
+      text: 'INSERT INTO comments (id, content, "threadId", "userId") VALUES ($1, $2, $3, $4) RETURNING id, content, "userId"',
+      values: [id, content, threadId, userId],
     };
 
     const result = await this._pool.query(query);
@@ -25,44 +24,57 @@ class CommentRepositoryPostgres extends CommentRepository {
     return new CreatedComment({ ...result.rows[0] });
   }
 
+  async getCommentsByThreadId(threadId) {
+    const query = {
+      text: `SELECT c.id, c.content, c.created_at AS date, u.username, c.is_deleted
+             FROM comments c
+              LEFT JOIN users u ON c."userId" = u.id
+             WHERE c."threadId" = $1
+             ORDER BY c.created_at ASC`,
+      values: [threadId],
+    };
+
+    const result = await this._pool.query(query);
+
+    return result.rows;
+  }
+
   async deleteComment(commentId) {
     const query = {
-      text: 'UPDATE comments SET is_deleted = true WHERE id = $1',
-      values: [commentId],
-    };
-
-    await this._pool.query(query);
-  }
-
-  async verifyCommentExists(commentId) {
-    const query = {
-      text: 'SELECT id FROM comments WHERE id = $1',
+      text: 'UPDATE comments SET is_deleted = true WHERE id = $1 RETURNING id',
       values: [commentId],
     };
 
     const result = await this._pool.query(query);
 
     if (!result.rowCount) {
-      throw new NotFoundError('komentar tidak ditemukan');
+      throw new NotFoundError('Komentar tidak ditemukan');
     }
   }
 
-  async verifyCommentOwner(commentId, owner) {
+  async verifyCommentOwner(commentId, userId) {
     const query = {
-      text: 'SELECT "userId" FROM comments WHERE id = $1',
+      text: 'SELECT * FROM comments WHERE id = $1 AND "userId" = $2',
+      values: [commentId, userId],
+    };
+
+    const result = await this._pool.query(query);
+
+    if (!result.rowCount) {
+      throw new AuthorizationError('Anda tidak berhak mengakses resource ini');
+    }
+  }
+
+  async verifyAvailableComment(commentId) {
+    const query = {
+      text: 'SELECT * FROM comments WHERE id = $1 AND is_deleted = false',
       values: [commentId],
     };
 
     const result = await this._pool.query(query);
 
     if (!result.rowCount) {
-      throw new NotFoundError('komentar tidak ditemukan');
-    }
-
-    const [{ userId }] = result.rows;
-
-    if (userId !== owner) {
-      throw new AuthorizationError('anda bukan pemilik komentar');
+      throw new NotFoundError('Komentar tidak ditemukan');
     }
   }
 }
