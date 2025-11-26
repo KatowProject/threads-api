@@ -1,0 +1,81 @@
+const { AddedReply } = require('../../Domains/replies/entities');
+const ReplyRepository = require('../../Domains/replies/ReplyRepository');
+
+const NotFoundError = require('../../Commons/exceptions/NotFoundError');
+const AuthorizationError = require('../../Commons/exceptions/AuthorizationError');
+
+module.exports = class ReplyRepositoryPostgres extends ReplyRepository {
+    constructor(pool, nanoid) {
+        super();
+        this._pool = pool;
+        this._nanoid = nanoid;
+    }
+
+    async addReply(payload) {
+        const { content, commentId, userId } = payload;
+        const id = `reply-${this._nanoid(16)}`;
+
+        const query = {
+            text: 'INSERT INTO replies (id, content, "commentId", "userId") VALUES ($1, $2, $3, $4) RETURNING id, content, "userId"',
+            values: [id, content, commentId, userId],
+        };
+
+        const result = await this._pool.query(query);
+
+        return new AddedReply({ ...result.rows[0] });
+    }
+
+    async getRepliesByCommentId(commentId) {
+        const query = {
+            text: `SELECT r.id, r.content, r.created_at AS date, u.username, r.is_deleted
+             FROM replies r
+              LEFT JOIN users u ON r."userId" = u.id
+             WHERE r."commentId" = $1
+             ORDER BY r.created_at ASC`,
+            values: [commentId],
+        };
+
+        const result = await this._pool.query(query);
+
+        return result.rows;
+    }
+
+    async deleteReply(replyId) {
+        const query = {
+            text: 'UPDATE replies SET is_deleted = true WHERE id = $1 RETURNING id',
+            values: [replyId],
+        };
+
+        const result = await this._pool.query(query);
+
+        if (!result.rowCount) {
+            throw new NotFoundError('Balasan tidak ditemukan');
+        }
+    }
+
+    async verifyReplyOwner(replyId, userId) {
+        const query = {
+            text: 'SELECT * FROM replies WHERE id = $1 AND "userId" = $2',
+            values: [replyId, userId],
+        };
+
+        const result = await this._pool.query(query);
+
+        if (!result.rowCount) {
+            throw new AuthorizationError('Anda tidak berhak mengakses balasan ini');
+        }
+    }
+
+    async verifyAvailableReply(replyId) {
+        const query = {
+            text: 'SELECT * FROM replies WHERE id = $1 AND is_deleted = false',
+            values: [replyId],
+        };
+
+        const result = await this._pool.query(query);
+
+        if (!result.rowCount) {
+            throw new NotFoundError('Balasan tidak ditemukan');
+        }
+    }
+};
