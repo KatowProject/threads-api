@@ -28,10 +28,32 @@ describe('a DetailThread entity', () => {
     expect(() => new DetailThread(payload)).toThrowError('DETAIL_THREAD.NOT_MEET_DATA_TYPE_SPECIFICATION');
   });
 
-  it('should create detailThread object correctly with arranged comments and replies', () => {
-    // Arrange: craft comments that satisfy both arrangement and verification
-    const commentDate1 = new Date('2020-01-02');
-    const replyDate = new Date('2020-01-03');
+  it('should create detailThread object correctly with empty comments', () => {
+    // Arrange
+    const payload = {
+      id: 'thread-123',
+      title: 'a title',
+      body: 'a body',
+      username: 'dicoding',
+      updated_at: new Date('2020-01-01'),
+      comments: [],
+    };
+
+    // Action
+    const detailThread = new DetailThread(payload);
+
+    // Assert
+    expect(detailThread.id).toEqual(payload.id);
+    expect(detailThread.title).toEqual(payload.title);
+    expect(detailThread.body).toEqual(payload.body);
+    expect(detailThread.date).toEqual(payload.updated_at);
+    expect(detailThread.username).toEqual(payload.username);
+    expect(detailThread.comments).toEqual([]);
+  });
+
+  it('should create detailThread object correctly with comments (object mode)', () => {
+    // Arrange
+    const commentDate = new Date('2020-01-02');
 
     const payload = {
       id: 'thread-123',
@@ -40,28 +62,15 @@ describe('a DetailThread entity', () => {
       username: 'dicoding',
       updated_at: new Date('2020-01-01'),
       comments: [
-        // top-level comment
         {
           commentId: 'comment-1',
           parentCommentId: null,
-          created_at: commentDate1,
+          created_at: commentDate,
           is_deleted: false,
           content: 'first comment',
           username: 'user-1',
-          // also include fields expected by _verifyComment
           id: 'comment-1',
-          date: commentDate1,
-        },
-        // reply to comment-1
-        {
-          commentId: 'comment-2',
-          parentCommentId: 'comment-1',
-          created_at: replyDate,
-          is_deleted: true,
-          content: 'reply content',
-          username: 'user-2',
-          id: 'comment-2',
-          date: replyDate,
+          date: commentDate,
         },
       ],
     };
@@ -69,29 +78,93 @@ describe('a DetailThread entity', () => {
     // Action
     const detailThread = new DetailThread(payload);
 
-    // Assert basic fields
-    expect(detailThread.id).toEqual(payload.id);
-    expect(detailThread.title).toEqual(payload.title);
-    expect(detailThread.body).toEqual(payload.body);
-    expect(detailThread.date).toEqual(payload.updated_at);
-    expect(detailThread.username).toEqual(payload.username);
-
-    // Assert comments arranged
-    expect(Array.isArray(detailThread.comments)).toBe(true);
+    // Assert
     expect(detailThread.comments).toHaveLength(1);
+    expect(detailThread.comments[0].id).toEqual('comment-1');
+    expect(detailThread.comments[0].content).toEqual('first comment');
+    expect(detailThread.comments[0].replies).toEqual([]);
+  });
 
+  it('should create detailThread object correctly with DB rows and replies (array mode)', () => {
+    // Arrange - DB rows format dari ThreadRepositoryPostgres
+    const threadRows = [
+      {
+        id: 'thread-123',
+        title: 'a title',
+        body: 'a body',
+        updated_at: new Date('2020-01-01'),
+        username: 'dicoding',
+        comment_id: 'comment-1',
+        comment_username: 'user-1',
+        comment_date: new Date('2020-01-02'),
+        content: 'first comment',
+        is_deleted: false,
+      },
+    ];
+
+    const repliesRows = [
+      {
+        reply_id: 'reply-1',
+        comment_id: 'comment-1',
+        content: 'a reply',
+        is_deleted: false,
+        reply_date: new Date('2020-01-03'),
+        reply_username: 'user-2',
+      },
+      {
+        reply_id: 'reply-2',
+        comment_id: 'comment-1',
+        content: 'deleted reply',
+        is_deleted: true,
+        reply_date: new Date('2020-01-04'),
+        reply_username: 'user-3',
+      },
+    ];
+
+    // Action
+    const detailThread = new DetailThread(threadRows, repliesRows);
+
+    // Assert basic fields
+    expect(detailThread.id).toEqual('thread-123');
+    expect(detailThread.title).toEqual('a title');
+    expect(detailThread.body).toEqual('a body');
+    expect(detailThread.username).toEqual('dicoding');
+
+    // Assert comments
+    expect(detailThread.comments).toHaveLength(1);
     const comment = detailThread.comments[0];
     expect(comment.id).toEqual('comment-1');
-    expect(comment.username).toEqual('user-1');
-    expect(comment.date).toEqual(commentDate1);
     expect(comment.content).toEqual('first comment');
-    expect(Array.isArray(comment.replies)).toBe(true);
-    expect(comment.replies).toHaveLength(1);
 
-    const reply = comment.replies[0];
-    expect(reply.id).toEqual('comment-2');
-    expect(reply.username).toEqual('user-2');
-    expect(reply.date).toEqual(replyDate);
-    expect(reply.content).toEqual('**balasan telah dihapus**');
+    // Assert replies
+    expect(comment.replies).toHaveLength(2);
+    expect(comment.replies[0].id).toEqual('reply-1');
+    expect(comment.replies[0].content).toEqual('a reply');
+    expect(comment.replies[1].id).toEqual('reply-2');
+    expect(comment.replies[1].content).toEqual('**balasan telah dihapus**');
+  });
+
+  it('should show deleted comment content as **komentar telah dihapus**', () => {
+    // Arrange
+    const threadRows = [
+      {
+        id: 'thread-123',
+        title: 'a title',
+        body: 'a body',
+        updated_at: new Date('2020-01-01'),
+        username: 'dicoding',
+        comment_id: 'comment-1',
+        comment_username: 'user-1',
+        comment_date: new Date('2020-01-02'),
+        content: 'deleted content',
+        is_deleted: true,
+      },
+    ];
+
+    // Action
+    const detailThread = new DetailThread(threadRows, []);
+
+    // Assert
+    expect(detailThread.comments[0].content).toEqual('**komentar telah dihapus**');
   });
 });

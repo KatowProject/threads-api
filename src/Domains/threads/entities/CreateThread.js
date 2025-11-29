@@ -12,8 +12,6 @@ module.exports = class CreateThread {
     _verifyPayload(payload) {
         const { title, body, userId } = payload;
 
-        console.log();
-
         if (!title || !body || !userId) {
             throw new Error('CREATE_THREAD.NOT_CONTAIN_NEEDED_PROPERTY');
         }

@@ -1,7 +1,6 @@
 class DetailThread {
-    constructor(payload) {
+    constructor(payload, replies = []) {
         if (Array.isArray(payload)) {
-            // DB rows array mode
             if (!payload || payload.length === 0) {
                 throw new Error('DETAIL_THREAD.NOT_CONTAIN_NEEDED_PROPERTY');
             }
@@ -10,14 +9,13 @@ class DetailThread {
 
             const { id, title, body, updated_at, username } = first;
 
-            // set basic fields
             this.id = id;
             this.title = title;
             this.body = body;
             this.date = updated_at;
             this.username = username;
 
-            this.comments = this._arrangeComments(payload);
+            this.comments = this._arrangeComments(payload, replies);
 
             this._verifyPayload({
                 id: this.id,
@@ -35,7 +33,6 @@ class DetailThread {
 
             const { id, title, body, updated_at, username } = payload;
 
-            // type checks: updated_at must be Date instance in object-mode (per tests)
             if (
                 typeof id !== 'string' ||
                 typeof title !== 'string' ||
@@ -65,20 +62,50 @@ class DetailThread {
         }
     }
 
-    _arrangeComments(comments) {
+    _arrangeComments(comments, replies = []) {
         if (!Array.isArray(comments) || comments.length === 0) return [];
 
         const normalized = this._normalizeComments(comments).filter((c) => c && c.commentId != null);
+        const normalizedReplies = this._normalizeReplies(replies);
 
         return normalized
-            .filter((c) => c.parentCommentId === null)
+            .filter((c) => c.parentCommentId === null || c.parentCommentId === undefined)
             .map((c) => ({
                 id: c.commentId,
                 username: c.username,
                 date: c.date,
                 content: c.is_deleted === false ? c.content : "**komentar telah dihapus**",
-                replies: this._processReplies(c.commentId, normalized),
+                replies: this._getRepliesForComment(c.commentId, normalizedReplies),
             }));
+    }
+
+    _getRepliesForComment(commentId, replies) {
+        if (!Array.isArray(replies) || replies.length === 0) return [];
+
+        return replies
+            .filter((r) => r.commentId === commentId)
+            .map((r) => ({
+                id: r.replyId,
+                username: r.username,
+                date: r.date,
+                content: r.is_deleted === false ? r.content : "**balasan telah dihapus**",
+            }));
+    }
+
+    _normalizeReplies(replies) {
+        if (!Array.isArray(replies)) return [];
+        
+        return replies.map((r) => {
+            if (r == null) return null;
+            return {
+                replyId: r.reply_id,
+                commentId: r.comment_id,
+                content: r.content,
+                is_deleted: r.is_deleted,
+                date: r.reply_date,
+                username: r.reply_username,
+            };
+        }).filter((r) => r != null && r.replyId != null);
     }
 
     _processReplies(parentCommentId, comments) {
@@ -100,7 +127,6 @@ class DetailThread {
     _normalizeComments(comments) {
         return comments.map((c) => {
             if (c == null) return c;
-            // DB row shape
             if (c.comment_id !== undefined && c.comment_id !== null) {
                 return {
                     commentId: c.comment_id,
@@ -113,7 +139,6 @@ class DetailThread {
                 };
             }
 
-            // object shape (camelCase)
             return {
                 commentId: c.commentId,
                 parentCommentId: c.parentCommentId,
@@ -155,7 +180,6 @@ class DetailThread {
         }
     }
 
-    // Validate comments
     _verifyComment(comment) {
         if (!comment.id || typeof comment.id !== 'string') {
             throw new Error(`DETAIL_THREAD.INVALID_COMMENT_ID`);
@@ -177,7 +201,6 @@ class DetailThread {
         }
     }
 
-    // validate replies
     _verifyReply(reply) {
         if (!reply.id || typeof reply.id !== 'string') {
             throw new Error(`DETAIL_THREAD.INVALID_REPLY_ID`);

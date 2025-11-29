@@ -24,7 +24,8 @@ module.exports = class ThreadRepositoryPostgres extends ThreadRepository {
     }
 
     async viewThreadById(id) {
-        const query = {
+        // Query untuk thread dan comments
+        const threadQuery = {
             text: `
                 SELECT 
                     threads.id, 
@@ -36,24 +37,45 @@ module.exports = class ThreadRepositoryPostgres extends ThreadRepository {
                     comment_users.username AS comment_username, 
                     comments.updated_at AS comment_date, 
                     comments.content, 
-                    comments."parentCommentId" as parent_comment_id ,
                     comments.is_deleted 
                 FROM threads 
                 LEFT JOIN users AS thread_users ON threads."userId" = thread_users.id 
                 LEFT JOIN comments ON comments."threadId" = threads.id 
                 LEFT JOIN users AS comment_users ON comments."userId" = comment_users.id 
                 WHERE threads.id = $1
+                ORDER BY comments.created_at ASC
             `,
             values: [id],
         };
 
-        const result = await this._pool.query(query);
+        const threadResult = await this._pool.query(threadQuery);
 
-        if (!result.rowCount) {
+        if (!threadResult.rowCount) {
             throw new NotFoundError('Thread tidak ditemukan');
         }
 
-        return new ThreadDetail(result.rows);
+        // Query untuk replies
+        const repliesQuery = {
+            text: `
+                SELECT 
+                    replies.id AS reply_id,
+                    replies."commentId" AS comment_id,
+                    replies.content,
+                    replies.is_deleted,
+                    replies.updated_at AS reply_date,
+                    reply_users.username AS reply_username
+                FROM replies
+                LEFT JOIN users AS reply_users ON replies."userId" = reply_users.id
+                LEFT JOIN comments ON replies."commentId" = comments.id
+                WHERE comments."threadId" = $1
+                ORDER BY replies.created_at ASC
+            `,
+            values: [id],
+        };
+
+        const repliesResult = await this._pool.query(repliesQuery);
+
+        return new ThreadDetail(threadResult.rows, repliesResult.rows);
     }
 
     async verifyThreadExists(id) {

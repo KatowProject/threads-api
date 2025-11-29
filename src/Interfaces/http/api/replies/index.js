@@ -1,4 +1,4 @@
-const RepliesHandler = require('./handle');
+const RepliesHandler = require('./handler');
 const routes = require('./routes');
 
 module.exports = {
