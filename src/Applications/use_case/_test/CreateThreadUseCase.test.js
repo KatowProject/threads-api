@@ -11,12 +11,14 @@ describe('CreateThreadUseCase', () => {
       userId: 'user-123',
     };
 
-    const mockCreatedThread = new CreatedThread({
+    const mockDate = new Date();
+
+    const expectedCreatedThread = new CreatedThread({
       id: 'thread-123',
       title: useCasePayload.title,
       body: useCasePayload.body,
       userId: useCasePayload.userId,
-      date: new Date(),
+      date: mockDate,
     });
 
     /** creating dependency of use case */
@@ -24,7 +26,15 @@ describe('CreateThreadUseCase', () => {
 
     /** mocking needed function */
     mockThreadRepository.createThread = jest.fn()
-      .mockImplementation(() => Promise.resolve(mockCreatedThread));
+      .mockImplementation(() => Promise.resolve(
+        new CreatedThread({
+          id: 'thread-123',
+          title: useCasePayload.title,
+          body: useCasePayload.body,
+          userId: useCasePayload.userId,
+          date: mockDate,
+        })
+      ));
 
     /** creating use case instance */
     const createThreadUseCase = new CreateThreadUseCase({
@@ -35,7 +45,7 @@ describe('CreateThreadUseCase', () => {
     const createdThread = await createThreadUseCase.execute(useCasePayload);
 
     // Assert
-    expect(createdThread).toStrictEqual(mockCreatedThread);
+    expect(createdThread).toStrictEqual(expectedCreatedThread);
     expect(mockThreadRepository.createThread).toBeCalledWith(new CreateThread(useCasePayload));
   });
 });
