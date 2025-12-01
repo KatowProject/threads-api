@@ -7,7 +7,7 @@ describe('a DetailThread entity', () => {
       id: 'thread-123',
       title: 'a title',
       body: 'a body',
-      // missing username and updated_at
+      // missing date, username, comments
     };
 
     // Action and Assert
@@ -21,7 +21,23 @@ describe('a DetailThread entity', () => {
       title: 'a title',
       body: 'a body',
       username: 'dicoding',
-      updated_at: '2020-01-01',
+      date: '2020-01-01', // should be Date object
+      comments: [],
+    };
+
+    // Action and Assert
+    expect(() => new DetailThread(payload)).toThrowError('DETAIL_THREAD.NOT_MEET_DATA_TYPE_SPECIFICATION');
+  });
+
+  it('should throw error when comments is not an array', () => {
+    // Arrange
+    const payload = {
+      id: 'thread-123',
+      title: 'a title',
+      body: 'a body',
+      username: 'dicoding',
+      date: new Date('2020-01-01'),
+      comments: 'not an array',
     };
 
     // Action and Assert
@@ -30,12 +46,13 @@ describe('a DetailThread entity', () => {
 
   it('should create detailThread object correctly with empty comments', () => {
     // Arrange
+    const mockDate = new Date('2020-01-01');
     const payload = {
       id: 'thread-123',
       title: 'a title',
       body: 'a body',
       username: 'dicoding',
-      updated_at: new Date('2020-01-01'),
+      date: mockDate,
       comments: [],
     };
 
@@ -46,31 +63,37 @@ describe('a DetailThread entity', () => {
     expect(detailThread.id).toEqual(payload.id);
     expect(detailThread.title).toEqual(payload.title);
     expect(detailThread.body).toEqual(payload.body);
-    expect(detailThread.date).toEqual(payload.updated_at);
+    expect(detailThread.date).toEqual(payload.date);
     expect(detailThread.username).toEqual(payload.username);
     expect(detailThread.comments).toEqual([]);
   });
 
-  it('should create detailThread object correctly with comments (object mode)', () => {
+  it('should create detailThread object correctly with comments and replies', () => {
     // Arrange
+    const mockDate = new Date('2020-01-01');
     const commentDate = new Date('2020-01-02');
+    const replyDate = new Date('2020-01-03');
 
     const payload = {
       id: 'thread-123',
       title: 'a title',
       body: 'a body',
       username: 'dicoding',
-      updated_at: new Date('2020-01-01'),
+      date: mockDate,
       comments: [
         {
-          commentId: 'comment-1',
-          parentCommentId: null,
-          created_at: commentDate,
-          is_deleted: false,
-          content: 'first comment',
-          username: 'user-1',
           id: 'comment-1',
+          username: 'user-1',
           date: commentDate,
+          content: 'a comment',
+          replies: [
+            {
+              id: 'reply-1',
+              username: 'user-2',
+              date: replyDate,
+              content: 'a reply',
+            },
+          ],
         },
       ],
     };
@@ -79,92 +102,10 @@ describe('a DetailThread entity', () => {
     const detailThread = new DetailThread(payload);
 
     // Assert
+    expect(detailThread.id).toEqual('thread-123');
     expect(detailThread.comments).toHaveLength(1);
     expect(detailThread.comments[0].id).toEqual('comment-1');
-    expect(detailThread.comments[0].content).toEqual('first comment');
-    expect(detailThread.comments[0].replies).toEqual([]);
-  });
-
-  it('should create detailThread object correctly with DB rows and replies (array mode)', () => {
-    // Arrange - DB rows format dari ThreadRepositoryPostgres
-    const threadRows = [
-      {
-        id: 'thread-123',
-        title: 'a title',
-        body: 'a body',
-        updated_at: new Date('2020-01-01'),
-        username: 'dicoding',
-        comment_id: 'comment-1',
-        comment_username: 'user-1',
-        comment_date: new Date('2020-01-02'),
-        content: 'first comment',
-        is_deleted: false,
-      },
-    ];
-
-    const repliesRows = [
-      {
-        reply_id: 'reply-1',
-        comment_id: 'comment-1',
-        content: 'a reply',
-        is_deleted: false,
-        reply_date: new Date('2020-01-03'),
-        reply_username: 'user-2',
-      },
-      {
-        reply_id: 'reply-2',
-        comment_id: 'comment-1',
-        content: 'deleted reply',
-        is_deleted: true,
-        reply_date: new Date('2020-01-04'),
-        reply_username: 'user-3',
-      },
-    ];
-
-    // Action
-    const detailThread = new DetailThread(threadRows, repliesRows);
-
-    // Assert basic fields
-    expect(detailThread.id).toEqual('thread-123');
-    expect(detailThread.title).toEqual('a title');
-    expect(detailThread.body).toEqual('a body');
-    expect(detailThread.username).toEqual('dicoding');
-
-    // Assert comments
-    expect(detailThread.comments).toHaveLength(1);
-    const comment = detailThread.comments[0];
-    expect(comment.id).toEqual('comment-1');
-    expect(comment.content).toEqual('first comment');
-
-    // Assert replies
-    expect(comment.replies).toHaveLength(2);
-    expect(comment.replies[0].id).toEqual('reply-1');
-    expect(comment.replies[0].content).toEqual('a reply');
-    expect(comment.replies[1].id).toEqual('reply-2');
-    expect(comment.replies[1].content).toEqual('**balasan telah dihapus**');
-  });
-
-  it('should show deleted comment content as **komentar telah dihapus**', () => {
-    // Arrange
-    const threadRows = [
-      {
-        id: 'thread-123',
-        title: 'a title',
-        body: 'a body',
-        updated_at: new Date('2020-01-01'),
-        username: 'dicoding',
-        comment_id: 'comment-1',
-        comment_username: 'user-1',
-        comment_date: new Date('2020-01-02'),
-        content: 'deleted content',
-        is_deleted: true,
-      },
-    ];
-
-    // Action
-    const detailThread = new DetailThread(threadRows, []);
-
-    // Assert
-    expect(detailThread.comments[0].content).toEqual('**komentar telah dihapus**');
+    expect(detailThread.comments[0].replies).toHaveLength(1);
+    expect(detailThread.comments[0].replies[0].id).toEqual('reply-1');
   });
 });

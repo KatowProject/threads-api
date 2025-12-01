@@ -25,14 +25,23 @@ module.exports = class ReplyRepositoryPostgres extends ReplyRepository {
         return new AddedReply({ ...result.rows[0] });
     }
 
-    async getRepliesByCommentId(commentId) {
+    async getRepliesByThreadId(threadId) {
         const query = {
-            text: `SELECT r.id, r.content, r.created_at AS date, u.username, r.is_deleted
-             FROM replies r
-              LEFT JOIN users u ON r."userId" = u.id
-             WHERE r."commentId" = $1
-             ORDER BY r.created_at ASC`,
-            values: [commentId],
+            text: `
+                SELECT 
+                    replies.id,
+                    replies."commentId" AS "commentId",
+                    replies.content,
+                    replies.is_deleted,
+                    replies.updated_at AS date,
+                    users.username
+                FROM replies
+                LEFT JOIN users ON replies."userId" = users.id
+                LEFT JOIN comments ON replies."commentId" = comments.id
+                WHERE comments."threadId" = $1
+                ORDER BY replies.created_at ASC
+            `,
+            values: [threadId],
         };
 
         const result = await this._pool.query(query);

@@ -43,24 +43,44 @@ describe('ReplyRepositoryPostgres', () => {
     });
   });
 
-  describe('getRepliesByCommentId', () => {
-    it('should return replies correctly', async () => {
+  describe('getRepliesByThreadId', () => {
+    it('should return empty array when no replies exist', async () => {
       // Arrange
       await UsersTableTestHelper.addUser({ id: 'user-123', username: 'dicoding' });
       await ThreadsTableTestHelper.addThread({ id: 'thread-123', title: 'a title', body: 'a body', userId: 'user-123' });
-      await CommentsTableTestHelper.addComment({ id: 'comment-123', content: 'a comment', threadId: 'thread-123', userId: 'user-123' });
-      await RepliesTableTestHelper.addReply({ id: 'reply-123', content: 'a reply', commentId: 'comment-123', userId: 'user-123' });
 
       const replyRepositoryPostgres = new ReplyRepositoryPostgres(pool, {});
 
       // Action
-      const replies = await replyRepositoryPostgres.getRepliesByCommentId('comment-123');
+      const replies = await replyRepositoryPostgres.getRepliesByThreadId('thread-123');
 
       // Assert
-      expect(replies).toHaveLength(1);
+      expect(replies).toEqual([]);
+    });
+
+    it('should return replies correctly', async () => {
+      // Arrange
+      await UsersTableTestHelper.addUser({ id: 'user-123', username: 'dicoding' });
+      await UsersTableTestHelper.addUser({ id: 'user-456', username: 'replier' });
+      await ThreadsTableTestHelper.addThread({ id: 'thread-123', title: 'a title', body: 'a body', userId: 'user-123' });
+      await CommentsTableTestHelper.addComment({ id: 'comment-123', content: 'a comment', threadId: 'thread-123', userId: 'user-123' });
+      await RepliesTableTestHelper.addReply({ id: 'reply-123', content: 'a reply', commentId: 'comment-123', userId: 'user-456', is_deleted: false });
+      await RepliesTableTestHelper.addReply({ id: 'reply-456', content: 'deleted reply', commentId: 'comment-123', userId: 'user-456', is_deleted: true });
+
+      const replyRepositoryPostgres = new ReplyRepositoryPostgres(pool, {});
+
+      // Action
+      const replies = await replyRepositoryPostgres.getRepliesByThreadId('thread-123');
+
+      // Assert
+      expect(replies).toHaveLength(2);
       expect(replies[0].id).toBe('reply-123');
       expect(replies[0].content).toBe('a reply');
-      expect(replies[0].username).toBe('dicoding');
+      expect(replies[0].username).toBe('replier');
+      expect(replies[0].commentId).toBe('comment-123');
+      expect(replies[0].is_deleted).toBe(false);
+      expect(replies[1].id).toBe('reply-456');
+      expect(replies[1].is_deleted).toBe(true);
     });
   });
 
@@ -107,7 +127,7 @@ describe('ReplyRepositoryPostgres', () => {
       await expect(replyRepositoryPostgres.verifyReplyOwner('reply-123', 'user-456')).rejects.toThrowError(AuthorizationError);
     });
 
-    it('should not throw when owner is the reply owner', async () => {
+    it('should not throw AuthorizationError when owner is the reply owner', async () => {
       // Arrange
       await UsersTableTestHelper.addUser({ id: 'user-123', username: 'dicoding' });
       await ThreadsTableTestHelper.addThread({ id: 'thread-123', title: 'a title', body: 'a body', userId: 'user-123' });
@@ -117,7 +137,8 @@ describe('ReplyRepositoryPostgres', () => {
       const replyRepositoryPostgres = new ReplyRepositoryPostgres(pool, {});
 
       // Action & Assert
-      await expect(replyRepositoryPostgres.verifyReplyOwner('reply-123', 'user-123')).resolves.not.toThrow();
+      await expect(replyRepositoryPostgres.verifyReplyOwner('reply-123', 'user-123'))
+        .resolves.not.toThrowError(AuthorizationError);
     });
   });
 
@@ -143,7 +164,7 @@ describe('ReplyRepositoryPostgres', () => {
       await expect(replyRepositoryPostgres.verifyAvailableReply('reply-123')).rejects.toThrowError(NotFoundError);
     });
 
-    it('should not throw when reply exists and not deleted', async () => {
+    it('should not throw NotFoundError when reply exists and not deleted', async () => {
       // Arrange
       await UsersTableTestHelper.addUser({ id: 'user-123', username: 'dicoding' });
       await ThreadsTableTestHelper.addThread({ id: 'thread-123', title: 'a title', body: 'a body', userId: 'user-123' });
@@ -153,7 +174,8 @@ describe('ReplyRepositoryPostgres', () => {
       const replyRepositoryPostgres = new ReplyRepositoryPostgres(pool, {});
 
       // Action & Assert
-      await expect(replyRepositoryPostgres.verifyAvailableReply('reply-123')).resolves.not.toThrow();
+      await expect(replyRepositoryPostgres.verifyAvailableReply('reply-123'))
+        .resolves.not.toThrowError(NotFoundError);
     });
   });
 });

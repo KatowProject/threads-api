@@ -49,4 +49,30 @@ describe('autoBind util', () => {
     expect(inst.extra).toBe('y');
     expect(inst.str).toBe('x');
   });
+
+  it('should skip non-function prototype properties', () => {
+    // Create a class with a non-function property on prototype
+    class TestClass {
+      constructor() {
+        this.value = 10;
+      }
+
+      getValue() {
+        return this.value;
+      }
+    }
+
+    // Add non-function property to prototype
+    TestClass.prototype.protoProperty = 'not a function';
+
+    const inst = new TestClass();
+
+    autoBind(inst);
+
+    // protoProperty should remain unchanged (not bound)
+    expect(inst.protoProperty).toBe('not a function');
+    // method should still work
+    const fn = inst.getValue;
+    expect(fn()).toBe(10);
+  });
 });

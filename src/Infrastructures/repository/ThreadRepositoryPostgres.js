@@ -1,6 +1,6 @@
 const NotFoundError = require('../../Commons/exceptions/NotFoundError');
 const ThreadRepository = require('../../Domains/threads/ThreadRepository');
-const { CreatedThread, ThreadDetail } = require('../../Domains/threads/entities');
+const { CreatedThread } = require('../../Domains/threads/entities');
 
 module.exports = class ThreadRepositoryPostgres extends ThreadRepository {
     constructor(pool, nanoid) {
@@ -23,59 +23,29 @@ module.exports = class ThreadRepositoryPostgres extends ThreadRepository {
         return new CreatedThread({ ...result.rows[0] });
     }
 
-    async viewThreadById(id) {
-        // Query untuk thread dan comments
-        const threadQuery = {
+    async getThreadById(threadId) {
+        const query = {
             text: `
                 SELECT 
                     threads.id, 
                     threads.title, 
                     threads.body, 
-                    threads.updated_at, 
-                    thread_users.username, 
-                    comments.id AS comment_id, 
-                    comment_users.username AS comment_username, 
-                    comments.updated_at AS comment_date, 
-                    comments.content, 
-                    comments.is_deleted 
+                    threads.updated_at,
+                    users.username
                 FROM threads 
-                LEFT JOIN users AS thread_users ON threads."userId" = thread_users.id 
-                LEFT JOIN comments ON comments."threadId" = threads.id 
-                LEFT JOIN users AS comment_users ON comments."userId" = comment_users.id 
+                LEFT JOIN users ON threads."userId" = users.id 
                 WHERE threads.id = $1
-                ORDER BY comments.created_at ASC
             `,
-            values: [id],
+            values: [threadId],
         };
 
-        const threadResult = await this._pool.query(threadQuery);
+        const result = await this._pool.query(query);
 
-        if (!threadResult.rowCount) {
+        if (!result.rowCount) {
             throw new NotFoundError('Thread tidak ditemukan');
         }
 
-        // Query untuk replies
-        const repliesQuery = {
-            text: `
-                SELECT 
-                    replies.id AS reply_id,
-                    replies."commentId" AS comment_id,
-                    replies.content,
-                    replies.is_deleted,
-                    replies.updated_at AS reply_date,
-                    reply_users.username AS reply_username
-                FROM replies
-                LEFT JOIN users AS reply_users ON replies."userId" = reply_users.id
-                LEFT JOIN comments ON replies."commentId" = comments.id
-                WHERE comments."threadId" = $1
-                ORDER BY replies.created_at ASC
-            `,
-            values: [id],
-        };
-
-        const repliesResult = await this._pool.query(repliesQuery);
-
-        return new ThreadDetail(threadResult.rows, repliesResult.rows);
+        return result.rows[0];
     }
 
     async verifyThreadExists(id) {
