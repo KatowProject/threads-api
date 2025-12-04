@@ -88,10 +88,15 @@ jobs:
               exit 127
             fi
 
-            # install dependencies, run migrations, and restart the app
-            npm install
-            npm ci --production
+            npm ci --prefer-offline --no-audit
+
+            node -v || true
+            npm -v || true
+            ls -la node_modules/.bin || true
+
             npm run migrate up
+
+            npm prune --production || true
 
             if ! command -v pm2 >/dev/null 2>&1; then
               echo "pm2 not found, installing globally via npm"
