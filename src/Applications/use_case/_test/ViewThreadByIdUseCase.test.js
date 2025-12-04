@@ -1,6 +1,7 @@
 const ThreadRepository = require('../../../Domains/threads/ThreadRepository');
 const CommentRepository = require('../../../Domains/comments/CommentRepository');
 const ReplyRepository = require('../../../Domains/replies/ReplyRepository');
+const LikeRepository = require('../../../Domains/likes/LikeRepository');
 const ViewThreadByIdUseCase = require('../ViewThreadByIdUseCase');
 
 describe('ViewThreadByIdUseCase', () => {
@@ -53,6 +54,11 @@ describe('ViewThreadByIdUseCase', () => {
       },
     ];
 
+    const mockLikeCounts = [
+      { commentId: 'comment-1', likeCount: 2 },
+      { commentId: 'comment-2', likeCount: 1 },
+    ];
+
     const mockThreadRepository = new ThreadRepository();
     mockThreadRepository.getThreadById = jest.fn()
       .mockImplementation(() => Promise.resolve(mockThread));
@@ -65,10 +71,15 @@ describe('ViewThreadByIdUseCase', () => {
     mockReplyRepository.getRepliesByThreadId = jest.fn()
       .mockImplementation(() => Promise.resolve(mockReplies));
 
+    const mockLikeRepository = new LikeRepository();
+    mockLikeRepository.getLikeCountsByCommentIds = jest.fn()
+      .mockImplementation(() => Promise.resolve(mockLikeCounts));
+
     const viewThreadByIdUseCase = new ViewThreadByIdUseCase({
       threadRepository: mockThreadRepository,
       commentRepository: mockCommentRepository,
       replyRepository: mockReplyRepository,
+      likeRepository: mockLikeRepository,
     });
 
     // Action
@@ -78,6 +89,7 @@ describe('ViewThreadByIdUseCase', () => {
     expect(mockThreadRepository.getThreadById).toBeCalledWith(threadId);
     expect(mockCommentRepository.getCommentsByThreadId).toBeCalledWith(threadId);
     expect(mockReplyRepository.getRepliesByThreadId).toBeCalledWith(threadId);
+    expect(mockLikeRepository.getLikeCountsByCommentIds).toBeCalledWith(['comment-1', 'comment-2']);
 
     expect(threadDetail.id).toEqual(threadId);
     expect(threadDetail.title).toEqual('a title');
@@ -89,8 +101,10 @@ describe('ViewThreadByIdUseCase', () => {
     expect(threadDetail.comments).toHaveLength(2);
     expect(threadDetail.comments[0].id).toEqual('comment-1');
     expect(threadDetail.comments[0].content).toEqual('a comment');
+    expect(threadDetail.comments[0].likeCount).toEqual(2);
     expect(threadDetail.comments[1].id).toEqual('comment-2');
     expect(threadDetail.comments[1].content).toEqual('**komentar telah dihapus**');
+    expect(threadDetail.comments[1].likeCount).toEqual(1);
 
     // Check replies
     expect(threadDetail.comments[0].replies).toHaveLength(2);
@@ -128,10 +142,15 @@ describe('ViewThreadByIdUseCase', () => {
     mockReplyRepository.getRepliesByThreadId = jest.fn()
       .mockImplementation(() => Promise.resolve([]));
 
+    const mockLikeRepository = new LikeRepository();
+    mockLikeRepository.getLikeCountsByCommentIds = jest.fn()
+      .mockImplementation(() => Promise.resolve([]));
+
     const viewThreadByIdUseCase = new ViewThreadByIdUseCase({
       threadRepository: mockThreadRepository,
       commentRepository: mockCommentRepository,
       replyRepository: mockReplyRepository,
+      likeRepository: mockLikeRepository,
     });
 
     // Action
