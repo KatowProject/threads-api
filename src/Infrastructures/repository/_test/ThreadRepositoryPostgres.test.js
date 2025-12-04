@@ -33,7 +33,7 @@ describe('ThreadRepositoryPostgres', () => {
       // Assert
       const threads = await ThreadsTableTestHelper.findThreadsById('thread-123');
       expect(threads).toHaveLength(1);
-      expect(createdThread.id).toBe('thread-1232');
+      expect(createdThread.id).toBe('thread-123');
       expect(createdThread.title).toBe('a title');
       expect(createdThread.body).toBe('a body');
       expect(createdThread.userId).toBe('user-123');
