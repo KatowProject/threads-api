@@ -88,6 +88,8 @@ jobs:
               exit 127
             fi
 
+            # install dependencies, run migrations, and restart the app
+            npm install
             npm ci --production
             npm run migrate up
 
